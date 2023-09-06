@@ -113,13 +113,14 @@ def get_objects(dates, instrument='lrs2', rootdir='/work/03946/hetdex/maverick',
             ifuslots = np.unique([op.basename(name).split('_')[1][:3] for name in names_list])
             b = fits.open(T.extractfile(T.getmember(names_list[0])))
             Target = b[0].header['OBJECT']
-            
+            ambtemp = b[0].header['AMBTEMP']
+            dateobs = b[0].header['DATE']
             NEXP = len(exposures)
             for i in np.arange(NEXP):
-                objectdict['%s_%07d_%02d' % (date, obsnum, i+1)] = Target
+                objectdict['%s_%07d_%02d' % (date, obsnum, i+1)] = [Target, dateobs, ambtemp]
                 args.log.info('%s_%07d_%02d: %s' % (date, obsnum, i+1, Target))
         except:
-            objectdict['%s_%07d_%02d' % (date, obsnum, NEXP)] = ''
+            objectdict['%s_%07d_%02d' % (date, obsnum, NEXP)] = ['', '', 0.0]
             continue
         T.close()
     return objectdict, ifuslots
@@ -136,9 +137,10 @@ objectdict, ifuslots = get_objects(dates, instrument='virus',rootdir=basedir)
 # We will use the object dictionary from the previous cell for file IDs
 ########################################################################
 keys = list(objectdict.keys())
-values = list(objectdict.values())
-
-T = Table([keys, values], names=['Exposure', 'Description'],
-          dtype=['str', 'str'])
+target = [v[0] for v in list(objectdict.values())]
+dateobs = [v[1] for v in list(objectdict.values())]
+ambtemp  = [v[2] for v in list(objectdict.values())]
+T = Table([keys, target, dateobs, ambtemp], 
+          names=['Exposure', 'Description', 'Date', 'Temp'])
 T.write(args.output_file, format='ascii.fixed_width_two_line',
         overwrite=True)
