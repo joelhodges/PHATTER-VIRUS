@@ -13,15 +13,11 @@ import warnings
 import glob
 from astropy.io import fits
 from astropy.table import Table
-from astrometry import Astrometry
-from astropy.coordinates import SkyCoord
-import astropy.units as u
 from fiber_utils import base_reduction, rectify, get_powerlaw
 from fiber_utils import get_spectra_error, get_spectra, get_spectra_chi2
 from datetime import datetime
 import tarfile
 import sys
-import tables
 from scipy.signal import medfilt
 
 
