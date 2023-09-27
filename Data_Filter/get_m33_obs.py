@@ -8,6 +8,7 @@ Created on Mon Sep 18 13:43:12 2023
 from astropy.table import Table
 import argparse as ap
 import warnings
+from astropy.time import Time
 
 warnings.filterwarnings("ignore")
 
@@ -42,19 +43,12 @@ def get_close_dex(m33_obs, dex_obs, time_constraint = args.time_constraint):
     output_list = []
     
     for dex in dex_obs:
-        dex_time = str(dex['Date'])
-        dex_time_hours = int(dex_time[11:13]) + int(dex_time[14:16])/60 + int(dex_time[17:19])/3600
+        dex_time = Time(str(dex['Date']), format='fits', out_subfmt='date_hms')
         
         for m33 in m33_obs:
-            m33_time = str(m33['Date'])
-            m33_time_hours = int(m33_time[11:13]) + int(m33_time[14:16])/60 + int(m33_time[17:19])/3600
+            m33_time = Time(str(m33['Date']), format='fits', out_subfmt='date_hms')
             
-            # Checks if the two observations occurred on the same day
-            if dex_time[:10] == m33_time[:10]:
-                        
-                # Checks if the two observations occured within the time constraint
-                # Accurate to the second (but not tenth of second)
-                if (abs(dex_time_hours - m33_time_hours)%24 < time_constraint) or (abs(dex_time_hours + m33_time_hours)%24 < time_constraint):
+            if(abs(dex_time - m33_time) < time_constraint/24):
                     output_list.append(dex)
                     break
                         
