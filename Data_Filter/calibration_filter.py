@@ -34,7 +34,7 @@ parser.add_argument("-dt", "--dawn_time",
                     type=str, default='10:00:00')
 
 parser.add_argument("-tt", "--twilight_time",
-                    help='''The time (in hh:mm:ss format) for the last observation time in the morning (defaults to 4 pm)''',
+                    help='''The time (in hh:mm:ss format) for the first observation time in the evening (defaults to 4 pm)''',
                     type=str, default='16:00:00')
 
 args = parser.parse_args(args=None)
