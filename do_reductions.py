@@ -120,68 +120,7 @@ def reduce(key, h5table, basepath=None, ifuslots=None):
     virus = VIRUSRaw(date, obs, h5table, exposure_number=exp, basepath=basepath, ifuslots=ifuslots)
     return virus
 
-
-
-parser = ap.ArgumentParser(add_help=True)
-
-parser.add_argument('object_table', type=str,
-                    help='''name of the output file''')
-
-parser.add_argument('hdf5file', type=str,
-                    help='''name of the hdf5 file''')
-
-parser.add_argument('outname', type=str,
-                    help='''name appended to shift output''')
-
-parser.add_argument('target', type=str,
-                    help='''name of the target for reduction''')
-
-parser.add_argument('--basedir', type=str,
-                    help='''name appended to shift output''',
-                    default='/work/03946/hetdex/maverick')
-
-# =============================================================================
-# Get Arguments from parser and setup logging
-# =============================================================================
-args = parser.parse_args(args=None)
-args.log = setup_logging('get_object_table')
-
-# =============================================================================
-# Hard coding for the VIRUS rectified wavelengths
-# =============================================================================
-def_wave = np.linspace(3470, 5540, 1036)
-
-
-# =============================================================================
-# Load the *.h5 calibration table
-# =============================================================================
-basedir = args.basedir
-hdf5file = args.hdf5file
-
-h5file = tables.open_file(hdf5file, mode='r')
-h5table = h5file.root.Cals
-
-# =============================================================================
-# Get all of the ifuslot numbers from the calibration table
-# =============================================================================
-ifuslots = list(np.unique(['%03d' % i for i in h5table.cols.ifuslot[:]]))
-
-# =============================================================================
-# Get the table of observations
-# =============================================================================
-T = Table.read(args.object_table, format='ascii.fixed_width_two_line')
-
-keys = list([str(t) for t in T['Exposure']])
-values = list(T['Description'])
-
-target_name = args.target
-
-sci_obs = [key for key, value in zip(keys, values) if target_name in value.lower()]
-sci_inds = [j for key, value, j in zip(keys, values, np.arange(len(keys))) if target_name in value.lower()]
-sci_unique_obs, uinds = np.unique([sci_o[:-2] for sci_o in sci_obs], return_index=True)
-sci_unique_inds = np.array(sci_inds)[uinds]
-
-for sciind in sci_unique_inds:
+def get_science(sciind):
     twi_obs = find_calibration_exposures(T[sciind], T, cal='skyflat', time_constraint=12.)
     twi_list = []
     for twio in twi_obs:
@@ -202,9 +141,80 @@ for sciind in sci_unique_inds:
     LDLS_list = []
     for LDLSo in LDLS_obs:
         LDLS_list.append(reduce(LDLSo, h5table, basepath=basedir, ifuslots=ifuslots))
+    sky_obs = find_calibration_exposures(T[sciind], T, cal='dex', time_constraint=12.)
+    sky_list = []
+    for skyo in sky_obs:
+        sky_list.append(reduce(skyo, h5table, basepath=basedir, ifuslots=ifuslots))
+        
     VIRUS1 = reduce(keys[sciind], h5table, basepath=basedir, ifuslots=ifuslots)
     VIRUS2 = reduce(keys[sciind+1], h5table, basepath=basedir, ifuslots=ifuslots)
     VIRUS3 = reduce(keys[sciind+2], h5table, basepath=basedir, ifuslots=ifuslots)
     SCIENCE = VIRUSObs([VIRUS1, VIRUS2, VIRUS3],
                        arcRaw_list=Hg_list+CdA_list, DarkRaw_list=Dark_list,
                        twiRaw_list=twi_list, LDLSRaw_list=LDLS_list, dither_index=[0, 1, 2])
+    return SCIENCE
+    
+
+parser = ap.ArgumentParser(add_help=True)
+
+parser.add_argument('object_table', type=str,
+                    help='''name of the output file''')
+
+parser.add_argument('hdf5file', type=str,
+                    help='''name of the hdf5 file''')
+
+parser.add_argument('outname', type=str,
+                    help='''name appended to shift output''')
+
+parser.add_argument('target', type=str,
+                    help='''name of the target for reduction''')
+
+parser.add_argument('--basedir', type=str,
+                    help='''name appended to shift output''',
+                    default='/work/03946/hetdex/maverick')
+
+if __name__ == '__main__':
+    # =============================================================================
+    # Get Arguments from parser and setup logging
+    # =============================================================================
+    args = parser.parse_args(args=None)
+    args.log = setup_logging('get_object_table')
+    
+    # =============================================================================
+    # Hard coding for the VIRUS rectified wavelengths
+    # =============================================================================
+    def_wave = np.linspace(3470, 5540, 1036)
+    
+    
+    # =============================================================================
+    # Load the *.h5 calibration table
+    # =============================================================================
+    basedir = args.basedir
+    hdf5file = args.hdf5file
+    
+    h5file = tables.open_file(hdf5file, mode='r')
+    h5table = h5file.root.Cals
+    
+    # =============================================================================
+    # Get all of the ifuslot numbers from the calibration table
+    # =============================================================================
+    ifuslots = list(np.unique(['%03d' % i for i in h5table.cols.ifuslot[:]]))
+    
+    # =============================================================================
+    # Get the table of observations
+    # =============================================================================
+    T = Table.read(args.object_table, format='ascii.fixed_width_two_line')
+    
+    keys = list([str(t) for t in T['Exposure']])
+    values = list(T['Description'])
+    
+    target_name = args.target
+    
+    sci_obs = [key for key, value in zip(keys, values) if target_name in value.lower()]
+    sci_inds = [j for key, value, j in zip(keys, values, np.arange(len(keys))) if target_name in value.lower()]
+    sci_unique_obs, uinds = np.unique([sci_o[:-2] for sci_o in sci_obs], return_index=True)
+    sci_unique_inds = np.array(sci_inds)[uinds]
+    
+    P = Pool(16)
+    res = P.map(get_science, sci_unique_inds)
+    P.close()
